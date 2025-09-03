@@ -1,6 +1,7 @@
 import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme';
 
@@ -9,27 +10,38 @@ import HomeScreen from '../screens/HomeScreen';
 import AddExpenseScreen from '../screens/AddExpenseScreen';
 import StatsScreen from '../screens/StatsScreen';
 import SettingsScreen from '../screens/SettingsScreen';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
+export type RootStackParamList = {
+  Home: undefined;
+  AddExpense: undefined;
+};
 export type RootTabParamList = {
   HomeTab: undefined;
-  AddExpense: undefined;
   Stats: undefined;
   Settings: undefined;
 };
 
 const Tab = createBottomTabNavigator<RootTabParamList>();
+const Stack = createNativeStackNavigator<RootStackParamList>();
+
+const HomeStack = () => (
+  <Stack.Navigator screenOptions={{
+    headerShown: false
+  }}>
+    <Stack.Screen name="Home" component={HomeScreen} />
+    <Stack.Screen 
+      name="AddExpense" 
+      component={AddExpenseScreen} 
+      options={{
+        presentation: 'modal',
+        headerShown: false
+      }}
+    />
+  </Stack.Navigator>
+);
 
 const AppNavigator = () => {
-  const { theme, colorScheme } = useTheme();
-  const Stack = createNativeStackNavigator();
-
-  const HomeStack = () => (
-    <Stack.Navigator>
-      <Stack.Screen name="Home" component={HomeScreen} options={{ headerShown: false }} />
-      <Stack.Screen name="AddExpense" component={AddExpenseScreen} options={{ headerShown: false }} />
-    </Stack.Navigator>
-  );
+  const { theme } = useTheme();
 
   return (
     <NavigationContainer>
@@ -40,8 +52,6 @@ const AppNavigator = () => {
 
             if (route.name === 'HomeTab') {
               iconName = focused ? 'home' : 'home-outline';
-            } else if (route.name === 'AddExpense') {
-              iconName = focused ? 'add-circle' : 'add-circle-outline';
             } else if (route.name === 'Stats') {
               iconName = focused ? 'stats-chart' : 'stats-chart-outline';
             } else if (route.name === 'Settings') {
@@ -57,32 +67,15 @@ const AppNavigator = () => {
             backgroundColor: theme.colors.card,
             borderTopColor: theme.colors.border,
           },
-          headerStyle: {
-            backgroundColor: theme.colors.background,
-            shadowColor: 'transparent',
-          },
-          headerTintColor: theme.colors.text,
-          headerTitleStyle: {
-            color: theme.colors.text,
-          },
           tabBarShowLabel: true,
         })}
       >
-        {/* <Tab.Screen 
-          name="Home" 
-          component={HomeScreen} 
-          options={{ 
-            title: 'Trang chủ',
-            tabBarLabel: 'Trang chủ',
-          }} 
-        /> */}
         <Tab.Screen
           name="HomeTab"
-
           component={HomeStack}
           options={{
-            title: 'Thêm chi tiêu',
-            tabBarLabel: 'Thêm',
+            title: 'Trang chủ',
+            tabBarLabel: 'Trang chủ',
           }}
         />
         <Tab.Screen

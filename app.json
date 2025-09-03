@@ -1,12 +1,12 @@
 {
   "expo": {
-    "name": "Vi Nhỏ",
+    "name": "Ví Nhỏ",
     "slug": "vinho",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "jsEngine": "jsc",
+    "jsEngine": "hermes",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
@@ -20,7 +20,7 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.yourcompany.vinho",
+      "bundleIdentifier": "com.nhatdev99.vinho",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -30,7 +30,7 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.yourcompany.vinho",
+      "package": "com.nhatdev99.vinho",
       "permissions": [],
       "versionCode": 1
     },
@@ -38,14 +38,7 @@
       "favicon": "./assets/favicon.png",
       "bundler": "metro"
     },
-    "experiments": {
-      "typedRoutes": true
-    },
-    "plugins": [
-      "expo-router"
-    ],
     "extra": {
-      "router": {},
       "eas": {
         "projectId": "35927b6b-9c4d-4394-9dbb-ab563d61e690"
       }
