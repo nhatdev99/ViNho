@@ -184,7 +184,7 @@ const StatsScreen = () => {
   );
 
   return (
-    <ScrollView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <View style={styles.header}>
         <Text style={[styles.title, { color: theme.colors.text }]}>Thống kê chi tiêu</Text>
         <View style={styles.periodSelector}>
@@ -303,7 +303,7 @@ const StatsScreen = () => {
           stickySectionHeadersEnabled={false}
         />
       </View>
-    </ScrollView>
+    </View>
   );
 };
 

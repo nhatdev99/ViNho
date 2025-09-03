@@ -12,7 +12,7 @@ import SettingsScreen from '../screens/SettingsScreen';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 export type RootTabParamList = {
-  Home: undefined;
+  HomeTab: undefined;
   AddExpense: undefined;
   Stats: undefined;
   Settings: undefined;
@@ -38,7 +38,7 @@ const AppNavigator = () => {
           tabBarIcon: ({ focused, color, size }) => {
             let iconName: keyof typeof Ionicons.glyphMap = 'home';
 
-            if (route.name === 'Home') {
+            if (route.name === 'HomeTab') {
               iconName = focused ? 'home' : 'home-outline';
             } else if (route.name === 'AddExpense') {
               iconName = focused ? 'add-circle' : 'add-circle-outline';
@@ -77,7 +77,7 @@ const AppNavigator = () => {
           }} 
         /> */}
         <Tab.Screen
-          name="Home"
+          name="HomeTab"
 
           component={HomeStack}
           options={{
