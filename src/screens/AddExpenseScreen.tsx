@@ -155,12 +155,14 @@ const AddExpenseScreen = () => {
 
       const newExpense = {
         amount: Number(expenseData.amount),
-        category: 'Khác',
+        category: expenseData.reason,
         note: expenseData.reason,
         date: new Date().toISOString().slice(0, 10),
       };
 
       await dispatch(addNewExpense(newExpense)).unwrap();
+
+      console.log("newExpense", newExpense);
 
       setMessages(prev => [
         ...prev,

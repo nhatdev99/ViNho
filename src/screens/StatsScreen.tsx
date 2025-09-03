@@ -1,23 +1,71 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SectionList, Platform, Image } from 'react-native';
 import { useTheme } from '../theme';
 import { useAppSelector } from '../store';
 import { formatCurrency } from '../utils/format';
 import { Expense } from '../types';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import { formatDate, getWeekDays, getMonthDays, getYearMonths, getDayName } from '../utils/dateUtils';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { colorPalettes } from '@/theme/colors';
+
+type CategoryIconMap = {
+  [key: string]: keyof typeof Ionicons.glyphMap;
+};
+
+// Định nghĩa các icon tương ứng với từng danh mục
+const categoryIcons: CategoryIconMap = {
+  'Ăn uống': 'fast-food-outline',
+  'Di chuyển': 'car-outline',
+  'Giải trí': 'game-controller-outline',
+  'Nhà ở': 'home-outline',
+  'Tiện ích': 'build-outline',
+  'Mua sắm': 'cart-outline',
+  'Y tế': 'medkit-outline',
+  'Giáo dục': 'school-outline',
+  'Khác': 'ellipsis-horizontal-outline'
+};
 
 const StatsScreen = () => {
   const { theme } = useTheme();
   const { expenses } = useAppSelector((state) => state.expenses);
-  const [selectedPeriod, setSelectedPeriod] = useState<'week' | 'month'>('week');
+  const [selectedPeriod, setSelectedPeriod] = useState<'week' | 'month' | 'day'>('week');
+  const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [filteredExpenses, setFilteredExpenses] = useState<Expense[]>([]);
   const [totalExpenses, setTotalExpenses] = useState(0);
   const [expensesByCategory, setExpensesByCategory] = useState<Record<string, number>>({});
+  const [expensesByDate, setExpensesByDate] = useState<Record<string, Expense[]>>({});
 
   useEffect(() => {
-    // Lọc chi tiêu theo khoảng thời gian đã chọn
+    if (selectedPeriod === 'day') {
+      // Lọc chi tiêu theo ngày đã chọn
+      const dailyExpenses = expenses.filter(expense => expense.date === selectedDate);
+      setFilteredExpenses(dailyExpenses);
+
+      // Tính tổng chi tiêu
+      const total = dailyExpenses.reduce((sum, expense) => sum + (expense.amount || 0), 0);
+      setTotalExpenses(total);
+
+      // Nhóm chi tiêu theo danh mục
+      const byCategory = dailyExpenses.reduce((acc, expense) => {
+        if (!expense.category) return acc;
+
+        if (!acc[expense.category]) {
+          acc[expense.category] = 0;
+        }
+        acc[expense.category] += expense.amount || 0;
+        return acc;
+      }, {} as Record<string, number>);
+
+      setExpensesByCategory(byCategory);
+      return;
+    }
+
+    // Phần xử lý cho tuần và tháng (giữ nguyên)
     const now = new Date();
     let startDate = new Date();
-    
+
     if (selectedPeriod === 'week') {
       startDate.setDate(now.getDate() - 7);
     } else {
@@ -30,15 +78,12 @@ const StatsScreen = () => {
     });
 
     setFilteredExpenses(filtered);
-
-    // Tính tổng chi tiêu
-    const total = filtered.reduce((sum: number, expense: Expense) => sum + (expense.amount || 0), 0);
+    const total = filtered.reduce((sum, expense) => sum + (expense.amount || 0), 0);
     setTotalExpenses(total);
 
-    // Nhóm chi tiêu theo danh mục
-    const byCategory = filtered.reduce((acc: Record<string, number>, expense: Expense) => {
+    const byCategory = filtered.reduce((acc, expense) => {
       if (!expense.category) return acc;
-      
+
       if (!acc[expense.category]) {
         acc[expense.category] = 0;
       }
@@ -47,120 +92,226 @@ const StatsScreen = () => {
     }, {} as Record<string, number>);
 
     setExpensesByCategory(byCategory);
-  }, [expenses, selectedPeriod]);
+  }, [expenses, selectedPeriod, selectedDate]);
 
-  // Sắp xếp các danh mục theo số tiền giảm dần
-  const sortedCategories = Object.entries(expensesByCategory)
-    .map(([category, amount]) => ({ category, amount }))
-    .sort((a, b) => (b.amount || 0) - (a.amount || 0));
+  // Chuẩn bị dữ liệu cho SectionList
+  const prepareSectionData = () => {
+    const sections: { title: string; data: Expense[] }[] = [];
+
+    if (selectedPeriod === 'day') {
+      // Nhóm theo danh mục nếu xem theo ngày
+      const groupedByCategory: Record<string, Expense[]> = {};
+
+      filteredExpenses.forEach(expense => {
+        if (!expense.category) return;
+
+        if (!groupedByCategory[expense.category]) {
+          groupedByCategory[expense.category] = [];
+        }
+        groupedByCategory[expense.category].push(expense);
+      });
+
+      // Chuyển đổi thành mảng sections
+      Object.entries(groupedByCategory).forEach(([category, items]) => {
+        sections.push({
+          title: category,
+          data: items,
+        });
+      });
+    } else {
+      // Nhóm theo ngày nếu xem theo tuần/tháng
+      const groupedByDate: Record<string, Expense[]> = {};
+
+      filteredExpenses.forEach(expense => {
+        if (!groupedByDate[expense.date]) {
+          groupedByDate[expense.date] = [];
+        }
+        groupedByDate[expense.date].push(expense);
+      });
+
+      // Sắp xếp các ngày từ mới đến cũ
+      const sortedDates = Object.keys(groupedByDate).sort((a, b) =>
+        new Date(b).getTime() - new Date(a).getTime()
+      );
+
+      sortedDates.forEach(date => {
+        sections.push({
+          title: formatDate(date),
+          data: groupedByDate[date],
+        });
+      });
+    }
+
+    return sections;
+  };
+
+  const renderExpenseItem = ({ item }: { item: Expense }) => (
+    <View style={[styles.expenseItem, { backgroundColor: theme.colors.background }]}>
+      <View style={{
+        padding: 15,
+        backgroundColor: item.category ? getCategoryColor(item.category) : theme.colors.card,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: 10,
+        borderRadius: 10
+      }}>
+        <Ionicons
+          name={item.category && categoryIcons[item.category]
+            ? categoryIcons[item.category]
+            : 'ellipsis-horizontal-outline'}
+          size={20}
+          color={theme.colors.text}
+        />
+      </View>
+      <View style={styles.expenseInfo}>
+        <Text style={[styles.expenseCategory, { color: theme.colors.text }]}>
+          Tiêu dùng cho <Text style={[styles.expenseCategory, { color: theme.colors.primary }]}>{item.category}</Text>
+        </Text>
+        {item.createdAt ? (
+          <Text style={[styles.expenseNote, { color: theme.colors.textSecondary }]}>
+            {formatDate(item.createdAt)}
+          </Text>
+        ) : null}
+      </View>
+      <View style={[styles.expenseInfo, { alignItems: 'flex-end' }]}>
+        <Text style={{ color: theme.colors.text }}>
+          Số tiền
+        </Text>
+        <Text style={[styles.expenseAmount, { color: theme.colors.text }]}>
+          {formatCurrency(item.amount)}
+        </Text>
+      </View>
+    </View>
+  );
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <View style={[styles.header, { borderBottomColor: theme.colors.border }]}>
-        <Text style={[styles.title, { color: theme.colors.text }]}>
-          Thống kê chi tiêu
-        </Text>
+    <ScrollView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <View style={styles.header}>
+        <Text style={[styles.title, { color: theme.colors.text }]}>Thống kê chi tiêu</Text>
         <View style={styles.periodSelector}>
           <TouchableOpacity
             style={[
               styles.periodButton,
-              { 
-                borderColor: theme.colors.border,
-                backgroundColor: selectedPeriod === 'week' ? theme.colors.primary : 'transparent',
-              },
+              selectedPeriod === 'day' && styles.periodButtonActive,
+              { borderColor: theme.colors.primary },
             ]}
-            onPress={() => setSelectedPeriod('week')}
-          >
+            onPress={() => setSelectedPeriod('day')}>
             <Text
               style={[
                 styles.periodButtonText,
-                { 
-                  color: selectedPeriod === 'week' ? theme.colors.card : theme.colors.text,
-                },
-              ]}
-            >
+                selectedPeriod === 'day' && { color: theme.colors.primary },
+              ]}>
+              Ngày
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.periodButton,
+              selectedPeriod === 'week' && styles.periodButtonActive,
+              { borderColor: theme.colors.primary },
+            ]}
+            onPress={() => setSelectedPeriod('week')}>
+            <Text
+              style={[
+                styles.periodButtonText,
+                selectedPeriod === 'week' && { color: theme.colors.primary },
+              ]}>
               Tuần
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[
               styles.periodButton,
-              { 
-                borderColor: theme.colors.border,
-                backgroundColor: selectedPeriod === 'month' ? theme.colors.primary : 'transparent',
-              },
+              selectedPeriod === 'month' && styles.periodButtonActive,
+              { borderColor: theme.colors.primary },
             ]}
-            onPress={() => setSelectedPeriod('month')}
-          >
+            onPress={() => setSelectedPeriod('month')}>
             <Text
               style={[
                 styles.periodButtonText,
-                { 
-                  color: selectedPeriod === 'month' ? theme.colors.card : theme.colors.text,
-                },
-              ]}
-            >
+                selectedPeriod === 'month' && { color: theme.colors.primary },
+              ]}>
               Tháng
             </Text>
           </TouchableOpacity>
         </View>
+
+
+        {selectedPeriod === 'day' && (
+          <>
+            <TouchableOpacity
+              style={[styles.dateSelector, { backgroundColor: theme.colors.card, borderColor: theme.colors.primary }]}
+              onPress={() => setShowDatePicker(!showDatePicker)}
+              activeOpacity={0.8}
+            >
+              <Text style={{ color: theme.colors.primary }}>
+                {formatDate(selectedDate)} ▼
+              </Text>
+            </TouchableOpacity>
+            {showDatePicker && (
+              <View style={[styles.datePickerContainer, { backgroundColor: theme.colors.card }]}>
+                <DateTimePicker
+                  value={new Date(selectedDate)}
+                  mode="date"
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  onChange={(event, selectedDate) => {
+                    setShowDatePicker(Platform.OS === 'ios');
+                    if (selectedDate) {
+                      setSelectedDate(selectedDate.toISOString().split('T')[0]);
+                    }
+                  }}
+                  themeVariant={theme.colors.theme === 'dark' ? 'dark' : 'light'}
+                />
+              </View>
+            )}
+          </>
+        )}
       </View>
 
-      <ScrollView style={styles.content}>
-        <View style={[styles.summaryCard, { backgroundColor: theme.colors.card }]}>
-          <Text style={[styles.summaryLabel, { color: theme.colors.textSecondary }]}>
-            Tổng chi tiêu {selectedPeriod === 'week' ? 'tuần này' : 'tháng này'}
+
+      <View style={styles.content}>
+        <View style={[styles.summaryCard, { backgroundColor: theme.colors.primary }]}>
+          <Text style={[styles.summaryLabel, { color: theme.colors.text }]}>
+            {selectedPeriod === 'day'
+              ? `Tổng chi tiêu ngày ${formatDate(selectedDate)}`
+              : `Tổng chi tiêu ${selectedPeriod === 'week' ? 'tuần này' : 'tháng này'}`}
           </Text>
-          <Text style={[styles.summaryAmount, { color: theme.colors.primary }]}>
+          <Text style={[styles.summaryAmount, { color: theme.colors.text }]}>
             {formatCurrency(totalExpenses)}
           </Text>
+
+          <Image source={require('../assets/images/monster2.png')} style={styles.treeImage} />
+          <Image source={require('../assets/images/headerimage.png')} style={styles.monsterImage} />
         </View>
 
-        <View style={[styles.section, { backgroundColor: theme.colors.card }]}>
-          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
-            Chi tiêu theo danh mục
-          </Text>
-          
-          {Object.entries(expensesByCategory).length > 0 ? (
-            Object.entries(expensesByCategory).map(([category, amount]) => {
-              const percentage = totalExpenses > 0 ? (amount / totalExpenses) * 100 : 0;
-              return (
-                <View key={category} style={styles.categoryItem}>
-                  <View style={styles.categoryInfo}>
-                    <View
-                      style={[
-                        styles.categoryColor,
-                        { backgroundColor: getCategoryColor(category) },
-                      ]}
-                    />
-                    <Text style={[styles.categoryName, { color: theme.colors.text }]}>
-                      {category}
-                    </Text>
-                  </View>
-                  <View style={styles.categoryAmountContainer}>
-                    <Text style={[styles.categoryAmount, { color: theme.colors.text }]}>
-                      {formatCurrency(amount)}
-                    </Text>
-                    <Text style={[styles.categoryPercentage, { color: theme.colors.textSecondary }]}>
-                      {percentage.toFixed(1)}%
-                    </Text>
-                  </View>
-                </View>
-              );
-            })
-          ) : (
+        <SectionList
+          sections={prepareSectionData()}
+          keyExtractor={(item, index) => item.id || index.toString()}
+          renderItem={renderExpenseItem}
+          renderSectionHeader={({ section: { title } }) => (
+            <View style={[styles.sectionHeader]}>
+              <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
+                {title}
+              </Text>
+            </View>
+          )}
+          ListEmptyComponent={
             <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>
               Không có dữ liệu chi tiêu
             </Text>
-          )}
-        </View>
-      </ScrollView>
-    </View>
+          }
+          contentContainerStyle={styles.sectionList}
+          stickySectionHeadersEnabled={false}
+        />
+      </View>
+    </ScrollView>
   );
 };
 
 // Hàm phụ trợ để lấy màu cho từng danh mục
 const getCategoryColor = (category: string): string => {
+  if (!category) return '#607D8B'; // Màu mặc định nếu không có danh mục
+
   const colors = [
     '#4CAF50', // Xanh lá
     '#2196F3', // Xanh dương
@@ -169,7 +320,7 @@ const getCategoryColor = (category: string): string => {
     '#FFC107', // Vàng
     '#607D8B', // Xám
   ];
-  
+
   let hash = 0;
   for (let i = 0; i < category.length; i++) {
     hash = category.charCodeAt(i) + ((hash << 5) - hash);
@@ -180,7 +331,8 @@ const getCategoryColor = (category: string): string => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingTop: 50
+    paddingTop: 50,
+    paddingBottom: 20,
   },
   header: {
     padding: 16,
@@ -194,27 +346,50 @@ const styles = StyleSheet.create({
   periodSelector: {
     flexDirection: 'row',
     marginTop: 8,
+    marginBottom: 8,
   },
   periodButton: {
-    flex: 1,
-    paddingVertical: 10,
-    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 16,
     borderWidth: 1,
-    borderRadius: 8,
     marginHorizontal: 4,
+  },
+  periodButtonActive: {
+    backgroundColor: 'rgba(33, 150, 243, 0.1)',
   },
   periodButtonText: {
     fontSize: 14,
     fontWeight: '500',
   },
+  dateSelector: {
+    padding: 10,
+    borderWidth: 1,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  datePickerContainer: {
+    width: '100%',
+    padding: 10,
+    borderRadius: 10,
+    marginTop: 8,
+  },
+  doneButton: {
+    padding: 10,
+    alignItems: 'flex-end',
+  },
   content: {
     flex: 1,
-    padding: 16,
   },
   summaryCard: {
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: 16,
+
+    position: 'relative',
+    overflow: 'hidden',
+    margin: 16,
+    padding: 16,
+    height: 200,
+    borderRadius: 10,
     alignItems: 'center',
     elevation: 2,
     shadowColor: '#000',
@@ -223,63 +398,83 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
   },
   summaryLabel: {
-    fontSize: 14,
+    fontSize: 16,
     marginBottom: 8,
   },
   summaryAmount: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: 'bold',
   },
-  section: {
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+  sectionList: {
+    paddingHorizontal: 16,
+    paddingBottom: 20,
+  },
+  sectionHeader: {
+    paddingVertical: 10,
+    marginTop: 16,
   },
   sectionTitle: {
     fontSize: 16,
     fontWeight: '600',
-    marginBottom: 16,
   },
-  categoryItem: {
+  expenseItem: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-start',
     alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
+    padding: 12,
+    backgroundColor: 'white',
+    borderRadius: 8,
+    marginVertical: 4,
   },
-  categoryInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  expenseInfo: {
+    flex: 1,
   },
-  categoryColor: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    marginRight: 12,
-  },
-  categoryName: {
-    fontSize: 14,
-  },
-  categoryAmountContainer: {
-    alignItems: 'flex-end',
-  },
-  categoryAmount: {
-    fontSize: 14,
+  expenseCategory: {
+    fontSize: 16,
     fontWeight: '500',
+    marginBottom: 4,
   },
-  categoryPercentage: {
-    fontSize: 12,
-    marginTop: 2,
+  expenseNote: {
+    fontSize: 14,
+    marginBottom: 4,
+  },
+  expenseAmount: {
+    fontSize: 16,
+    fontWeight: '600',
   },
   emptyText: {
     textAlign: 'center',
-    marginVertical: 16,
-    fontSize: 14,
+    marginTop: 20,
+    fontSize: 16,
+    color: '#757575',
+  },
+  monsterImage: {
+    position: 'absolute',
+    right: -90,
+    bottom: 0,
+    height: 150,
+    width: '100%',
+    resizeMode: 'contain',
+    zIndex: 0,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+    elevation: 5,
+  },
+  treeImage: {
+    position: 'absolute',
+    left: -70,
+    bottom: -10,
+    height: 170,
+    width: '100%',
+    resizeMode: 'contain',
+    zIndex: 0,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+    elevation: 5,
   },
 });
 

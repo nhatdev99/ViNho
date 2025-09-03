@@ -3,7 +3,7 @@ import type { RootState } from './index';
 import { UserSettings, defaultUserSettings } from '../types';
 import { saveUserSettings, getUserSettings } from '@/utils/storage';
 
-interface SettingsState {
+export interface SettingsState {
   settings: UserSettings;
   loading: boolean;
   error: string | null;

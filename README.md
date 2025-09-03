@@ -19,7 +19,7 @@ Ví Nhỏ là ứng dụng quản lý chi tiêu cá nhân được xây dựng b
 ## Cài đặt
 1. Clone repo về máy:
    ```bash
-   git clone <repo_url>
+   git clone https://github.com/nhatdev99/ViNho.git
    ```
 2. Cài đặt dependencies:
    ```bash

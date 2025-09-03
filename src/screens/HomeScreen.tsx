@@ -8,6 +8,16 @@ import { fetchExpenses } from '../store/expensesSlice';
 import { formatCurrency } from '../utils/format';
 import { BlurView } from 'expo-blur';
 
+// Hàm chuyển đổi định dạng ngày từ yyyy-mm-dd sang 'Ngày dd Tháng MM Năm yyyy'
+const formatDate = (dateString: string) => {
+  const [year, month, day] = dateString.split('-');
+  const monthNames = [
+    '01', '02', '03', '04', '05', '06',
+    '07', '08', '09', '10', '11', '12'
+  ];
+  const monthName = monthNames[parseInt(month, 10) - 1];
+  return `ngày ${parseInt(day, 10)} tháng ${monthName} năm ${year}`;
+};
 
 const HomeScreen = () => {
   const { theme } = useTheme();
@@ -34,6 +44,9 @@ const HomeScreen = () => {
             {item.note}
           </Text>
         ) : null}
+        <Text style={[styles.expenseDate, { color: theme.colors.textSecondary }]}>
+            Vào {formatDate(item.date)}
+        </Text>
       </View>
       <Text style={[styles.expenseAmount, { color: theme.colors.text }]}>
         {formatCurrency(item.amount)}
@@ -45,7 +58,7 @@ const HomeScreen = () => {
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <View style={[styles.header, { backgroundColor: theme.colors.primary, borderRadius: 20 }]}>
         <View style={[styles.headerContent]}>
-          <Text style={[styles.headerTitle, { color: "#781242", zIndex: 1 }]}>Hôm nay</Text>
+          <Text style={[styles.headerTitle, { color: theme.colors.card }]}>Hôm nay</Text>
           <Text style={[styles.headerAmount, { color: theme.colors.card, zIndex: 1 }]}>{formatCurrency(totalToday)}</Text>
         </View>
 
@@ -82,9 +95,9 @@ const styles = StyleSheet.create({
     paddingTop: 50
   },
   header: {
-    flex: 1,
     position: 'relative',
     overflow: 'hidden',
+    height: 200,
     padding: 20,
     paddingVertical: 40,
     borderRadius: 20,
@@ -146,7 +159,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   listContent: {
-    flexGrow: 1,
+    flex: 1,
     padding: 15,
   },
   expenseItem: {
@@ -163,6 +176,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     marginBottom: 4,
+  },
+  expenseDate: {
+    fontSize: 12,
   },
   expenseNote: {
     fontSize: 14,

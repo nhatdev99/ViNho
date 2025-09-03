@@ -9,6 +9,7 @@ import HomeScreen from '../screens/HomeScreen';
 import AddExpenseScreen from '../screens/AddExpenseScreen';
 import StatsScreen from '../screens/StatsScreen';
 import SettingsScreen from '../screens/SettingsScreen';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 export type RootTabParamList = {
   Home: undefined;
@@ -21,6 +22,14 @@ const Tab = createBottomTabNavigator<RootTabParamList>();
 
 const AppNavigator = () => {
   const { theme, colorScheme } = useTheme();
+  const Stack = createNativeStackNavigator();
+
+  const HomeStack = () => (
+    <Stack.Navigator>
+      <Stack.Screen name="Home" component={HomeScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="AddExpense" component={AddExpenseScreen} options={{ headerShown: false }} />
+    </Stack.Navigator>
+  );
 
   return (
     <NavigationContainer>
@@ -59,37 +68,38 @@ const AppNavigator = () => {
           tabBarShowLabel: true,
         })}
       >
-        <Tab.Screen 
+        {/* <Tab.Screen 
           name="Home" 
           component={HomeScreen} 
           options={{ 
             title: 'Trang chủ',
             tabBarLabel: 'Trang chủ',
           }} 
-        />
-        <Tab.Screen 
-          name="AddExpense" 
-          component={AddExpenseScreen} 
-          options={{ 
+        /> */}
+        <Tab.Screen
+          name="Home"
+
+          component={HomeStack}
+          options={{
             title: 'Thêm chi tiêu',
             tabBarLabel: 'Thêm',
-          }} 
+          }}
         />
-        <Tab.Screen 
-          name="Stats" 
-          component={StatsScreen} 
-          options={{ 
+        <Tab.Screen
+          name="Stats"
+          component={StatsScreen}
+          options={{
             title: 'Thống kê',
             tabBarLabel: 'Thống kê',
-          }} 
+          }}
         />
-        <Tab.Screen 
-          name="Settings" 
-          component={SettingsScreen} 
-          options={{ 
+        <Tab.Screen
+          name="Settings"
+          component={SettingsScreen}
+          options={{
             title: 'Cài đặt',
             tabBarLabel: 'Cài đặt',
-          }} 
+          }}
         />
       </Tab.Navigator>
     </NavigationContainer>
