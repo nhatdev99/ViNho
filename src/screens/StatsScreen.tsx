@@ -5,9 +5,8 @@ import { useAppSelector } from '../store';
 import { formatCurrency } from '../utils/format';
 import { Expense } from '../types';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { formatDate, getWeekDays, getMonthDays, getYearMonths, getDayName } from '../utils/dateUtils';
+import { formatDate } from '../utils/dateUtils';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { colorPalettes } from '@/theme/colors';
 
 type CategoryIconMap = {
   [key: string]: keyof typeof Ionicons.glyphMap;

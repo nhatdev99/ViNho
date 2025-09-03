@@ -143,7 +143,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = () => {
                 <View
                   style={[
                     styles.paletteColor,
-                    { backgroundColor: `var(--color-${palette.id})` },
+                    { backgroundColor: colorPalette === palette.id ? theme.colors.primary : theme.colors.background },
                   ]}
                 />
                 <Text

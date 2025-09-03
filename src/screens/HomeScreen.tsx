@@ -6,7 +6,6 @@ import { useTheme } from '../theme';
 import { useAppDispatch, useAppSelector } from '../store';
 import { fetchExpenses } from '../store/expensesSlice';
 import { formatCurrency } from '../utils/format';
-import { BlurView } from 'expo-blur';
 
 // Hàm chuyển đổi định dạng ngày từ yyyy-mm-dd sang 'Ngày dd Tháng MM Năm yyyy'
 const formatDate = (dateString: string) => {
