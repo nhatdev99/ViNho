@@ -11,6 +11,7 @@ import {
 import { useTheme, type ColorPalette } from '../theme';
 import { useAppDispatch, useAppSelector } from '../store';
 import { updateSettings } from '../store/settingsSlice';
+import { SUPPORTED_CURRENCIES } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigation } from '@react-navigation/native';
 
@@ -43,12 +44,8 @@ const SettingsScreen: React.FC<SettingsScreenProps> = () => {
     { id: 'white', name: 'Trắng' },
   ];
 
-  // Các loại tiền tệ
-  const currencies = [
-    { code: 'VND', name: 'Việt Nam Đồng' },
-    { code: 'USD', name: 'US Dollar' },
-    { code: 'EUR', name: 'Euro' },
-  ];
+  // Sử dụng danh sách tiền tệ từ types
+  const currencies = SUPPORTED_CURRENCIES;
 
   // Cập nhật cài đặt khi có thay đổi
   useEffect(() => {
@@ -208,6 +205,8 @@ const SettingsScreen: React.FC<SettingsScreenProps> = () => {
                   borderColor: localSettings.currency === currency.code
                     ? theme.colors.primary
                     : theme.colors.border,
+                  flexDirection: 'column',
+                  alignItems: 'center',
                 },
               ]}
               onPress={() => changeCurrency(currency.code)}
@@ -222,7 +221,20 @@ const SettingsScreen: React.FC<SettingsScreenProps> = () => {
                   },
                 ]}
               >
-                {currency.code}
+                {currency.symbol} {currency.code}
+              </Text>
+              <Text
+                style={[
+                  styles.currencyName,
+                  {
+                    color: localSettings.currency === currency.code
+                      ? theme.colors.card
+                      : theme.colors.textSecondary,
+                    opacity: 0.8,
+                  },
+                ]}
+              >
+                {currency.name}
               </Text>
             </TouchableOpacity>
           ))}
@@ -388,18 +400,25 @@ const styles = StyleSheet.create({
   },
   currencyContainer: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     marginTop: 8,
   },
   currencyButton: {
     paddingHorizontal: 16,
     paddingVertical: 8,
-    borderRadius: 20,
+    borderRadius: 12,
     borderWidth: 1,
     marginRight: 8,
+    marginBottom: 8,
+    minWidth: 100,
   },
   currencyText: {
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: '600',
+  },
+  currencyName: {
+    fontSize: 10,
+    marginTop: 2,
   },
 });
 

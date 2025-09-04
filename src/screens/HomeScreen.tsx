@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, Image } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, Image, ActivityIndicator, Alert } from 'react-native';
 import { useNavigation } from "@react-navigation/native";
 import type { Expense } from '../types';
 import { useTheme } from '../theme';
 import { useAppDispatch, useAppSelector } from '../store';
-import { fetchExpenses } from '../store/expensesSlice';
+import { fetchExpenses, addNewExpense } from '../store/expensesSlice';
 import { fetchBudgets } from '../store/budgetsSlice';
+import { fetchRecurrences, upsertRecurrence } from '../store/recurrencesSlice';
 import { formatCurrency } from '../utils/format';
 import { Asset } from 'expo-asset';
 import type { BudgetModel } from '../store/budgetsSlice';
@@ -31,12 +32,78 @@ const HomeScreen = () => {
   const dispatch = useAppDispatch();
   const { expenses, loading } = useAppSelector((state) => state.expenses);
   const budgets = useAppSelector((state) => state.budgets.items);
+  const recurrences = useAppSelector((state) => state.recurrences.items);
+  const { settings } = useAppSelector((state) => state.settings);
   const [assetsReady, setAssetsReady] = useState(false);
 
   useEffect(() => {
     dispatch(fetchExpenses());
     dispatch(fetchBudgets());
+    dispatch(fetchRecurrences());
   }, [dispatch]);
+
+  // Auto-tạo giao dịch từ định kỳ khi đến hạn
+  useEffect(() => {
+    const checkRecurringTransactions = async () => {
+      try {
+        const today = new Date().toISOString().split('T')[0];
+        let hasNewTransactions = false;
+        
+        for (const recurrence of recurrences) {
+          if (recurrence.nextRunAt <= today) {
+            // Tạo giao dịch mới
+            await dispatch(addNewExpense({
+              amount: recurrence.amount,
+              category: recurrence.category,
+              note: `${recurrence.note || ''} (Định kỳ)`,
+              date: new Date().toISOString(),
+            })).unwrap();
+
+            // Cập nhật ngày chạy tiếp theo
+            const nextDate = new Date(recurrence.nextRunAt);
+            switch (recurrence.interval) {
+              case 'daily':
+                nextDate.setDate(nextDate.getDate() + 1);
+                break;
+              case 'weekly':
+                nextDate.setDate(nextDate.getDate() + 7);
+                break;
+              case 'monthly':
+                nextDate.setMonth(nextDate.getMonth() + 1);
+                break;
+            }
+            
+            await dispatch(upsertRecurrence({
+              ...recurrence,
+              nextRunAt: nextDate.toISOString().split('T')[0],
+            })).unwrap();
+            
+            hasNewTransactions = true;
+          }
+        }
+        
+        // Thông báo cho người dùng nếu có giao dịch mới được tạo
+        if (hasNewTransactions) {
+          Alert.alert(
+            '✅ Giao dịch định kỳ',
+            'Đã tự động tạo các giao dịch định kỳ đến hạn!',
+            [{ text: 'OK' }]
+          );
+        }
+      } catch (error) {
+        console.error('Lỗi khi xử lý giao dịch định kỳ:', error);
+        Alert.alert(
+          '⚠️ Lỗi',
+          'Có lỗi xảy ra khi xử lý giao dịch định kỳ',
+          [{ text: 'OK' }]
+        );
+      }
+    };
+
+    if (recurrences.length > 0) {
+      checkRecurringTransactions();
+    }
+  }, [recurrences, dispatch]);
 
   useEffect(() => {
     const preload = async () => {
@@ -93,7 +160,7 @@ const HomeScreen = () => {
         </Text>
       </View>
       <Text style={[styles.expenseAmount, { color: theme.colors.text }]}>
-        {formatCurrency(item.amount)}
+        {formatCurrency(item.amount, settings.currency)}
       </Text>
     </View>
   );
@@ -109,10 +176,10 @@ const HomeScreen = () => {
         <View style={[styles.headerContent]}>
 
           <Text style={[styles.headerTitle, { color: theme.colors.card }]}>Hôm nay</Text>
-          <Text style={[styles.headerAmount, { color: theme.colors.card, zIndex: 1 }]}>{formatCurrency(totalToday)}</Text>
+          <Text style={[styles.headerAmount, { color: theme.colors.card, zIndex: 1 }]}>{formatCurrency(totalToday, settings.currency)}</Text>
           {totalLimit > 0 && (
             <Text style={{ color: theme.colors.primary, marginTop: 6, backgroundColor: 'rgba(0, 0, 0, 0.5)', padding: 10, borderRadius: 10 }}>
-              Tháng này: {formatCurrency(totalThisMonth)} / {formatCurrency(totalLimit)}
+              Tháng này: {formatCurrency(totalThisMonth, settings.currency)} / {formatCurrency(totalLimit, settings.currency)}
               {usageRatio >= 1 ? ' (Vượt ngân sách!)' : usageRatio >= 0.8 ? ' (Gần chạm ngân sách)' : ''}
             </Text>
           )}

@@ -7,6 +7,7 @@ export interface Expense {
   date: string;
   createdAt: string;
   updatedAt?: string;
+  currency?: string; // Đa tiền tệ
 }
 
 // Định nghĩa danh mục chi tiêu
@@ -46,6 +47,18 @@ export interface UserSettings {
   dailyBudget?: number;
   categories: string[];
 }
+
+// Các loại tiền tệ hỗ trợ
+export const SUPPORTED_CURRENCIES = [
+  { code: 'VND', name: 'Việt Nam Đồng', symbol: '₫' },
+  { code: 'USD', name: 'US Dollar', symbol: '$' },
+  { code: 'EUR', name: 'Euro', symbol: '€' },
+  { code: 'JPY', name: 'Japanese Yen', symbol: '¥' },
+  { code: 'GBP', name: 'British Pound', symbol: '£' },
+  { code: 'CNY', name: 'Chinese Yuan', symbol: '¥' },
+  { code: 'KRW', name: 'Korean Won', symbol: '₩' },
+  { code: 'THB', name: 'Thai Baht', symbol: '฿' },
+];
 
 // Giá trị mặc định cho cài đặt
 export const defaultUserSettings: UserSettings = {

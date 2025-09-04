@@ -1,9 +1,28 @@
-export const formatCurrency = (amount: number): string => {
-  return new Intl.NumberFormat('vi-VN', {
-    style: 'currency',
-    currency: 'VND',
-    minimumFractionDigits: 0,
-  }).format(amount);
+export const formatCurrency = (amount: number, currency: string = 'VND'): string => {
+  // Định nghĩa locale tương ứng với từng currency
+  const localeMap: Record<string, string> = {
+    'VND': 'vi-VN',
+    'USD': 'en-US',
+    'EUR': 'de-DE',
+    'JPY': 'ja-JP',
+    'GBP': 'en-GB',
+    'CNY': 'zh-CN',
+    'KRW': 'ko-KR',
+    'THB': 'th-TH',
+  };
+
+  const locale = localeMap[currency] || 'vi-VN';
+  
+  try {
+    return new Intl.NumberFormat(locale, {
+      style: 'currency',
+      currency: currency,
+      minimumFractionDigits: currency === 'JPY' || currency === 'KRW' ? 0 : 2,
+    }).format(amount);
+  } catch (error) {
+    // Fallback nếu currency không hỗ trợ
+    return `${amount.toLocaleString()} ${currency}`;
+  }
 };
 
 export const formatDate = (dateString: string): string => {

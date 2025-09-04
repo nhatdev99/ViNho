@@ -45,6 +45,7 @@ const AddExpenseScreen = () => {
   // Destructure để code gọn hơn, dễ đọc
   const { colors } = theme;
   const budgets = useAppSelector((state) => state.budgets.items);
+  const { settings } = useAppSelector((state) => state.settings);
   const flatListRef = useRef<FlatList>(null);
   // Sinh id tăng dần, đảm bảo duy nhất và ổn định cho FlatList
   const idCounter = useRef<number>(0);
@@ -167,7 +168,7 @@ const AddExpenseScreen = () => {
         {
           id: nextId(),
           text: `Đã ghi nhận số tiền ${formatCurrency(
-            Number(amount)
+            Number(amount), settings.currency
           )}. Bạn chi vào việc gì vậy?`,
           isUser: false,
           type: 'reason',
@@ -181,7 +182,7 @@ const AddExpenseScreen = () => {
         {
           id: nextId(),
           text: `Bạn chắc chắn muốn thêm khoản chi ${formatCurrency(
-            Number(expenseData.amount)
+            Number(expenseData.amount), settings.currency
           )} cho "${inputValue}" chứ?`,
           isUser: false,
           type: 'confirm',
@@ -230,11 +231,18 @@ const AddExpenseScreen = () => {
       const categoryFromReason = categories.includes(expenseData.reason)
         ? expenseData.reason
         : 'Khác';
+      
+      // Số tiền âm cho chi tiêu, dương cho thu nhập
+      const finalAmount = transactionType === 'expense' 
+        ? -Math.abs(Number(expenseData.amount))
+        : Math.abs(Number(expenseData.amount));
+        
       const newExpensePayload = {
-        amount: Number(expenseData.amount),
+        amount: finalAmount,
         category: categoryFromReason,
         note: expenseData.reason || '',
         date: new Date().toISOString(),
+        currency: settings.currency,
       };
 
       await dispatch(addNewExpense(newExpensePayload)).unwrap();
@@ -246,7 +254,7 @@ const AddExpenseScreen = () => {
         {
           id: nextId(),
           text: `✅ Đã thêm khoản ${transactionType === 'expense' ? 'chi' : 'thu'} ${formatCurrency(
-            Math.abs(Number(expenseData.amount))
+            Math.abs(finalAmount), settings.currency
           )} cho "${expenseData.reason}" thành công!`,
           isUser: false,
           type: 'text',
@@ -336,7 +344,7 @@ const AddExpenseScreen = () => {
                   {
                     id: nextId(),
                     text: `Bạn chắc chắn muốn thêm khoản chi ${formatCurrency(
-                      Number(expenseData.amount)
+                      Number(expenseData.amount), settings.currency
                     )} cho "${cat}" chứ?`,
                     isUser: false,
                     type: 'confirm',
