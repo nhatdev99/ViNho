@@ -1,12 +1,14 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SectionList, Platform, Image } from 'react-native';
+import React, { useState, useEffect, useMemo } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SectionList, Platform, Image, Alert, TextInput, Dimensions } from 'react-native';
 import { useTheme } from '../theme';
-import { useAppSelector } from '../store';
+import { useAppDispatch, useAppSelector } from '../store';
 import { formatCurrency } from '../utils/format';
 import { Expense } from '../types';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { formatDate } from '../utils/dateUtils';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { deleteExpense } from '../store/expensesSlice';
+// Đã bỏ biểu đồ vì đã có trong màn Công cụ
 
 type CategoryIconMap = {
   [key: string]: keyof typeof Ionicons.glyphMap;
@@ -28,6 +30,7 @@ const categoryIcons: CategoryIconMap = {
 const StatsScreen = () => {
   const { theme } = useTheme();
   const { expenses } = useAppSelector((state) => state.expenses);
+  const dispatch = useAppDispatch();
   const [selectedPeriod, setSelectedPeriod] = useState<'week' | 'month' | 'day'>('week');
   const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -35,6 +38,12 @@ const StatsScreen = () => {
   const [totalExpenses, setTotalExpenses] = useState(0);
   const [expensesByCategory, setExpensesByCategory] = useState<Record<string, number>>({});
   const [expensesByDate, setExpensesByDate] = useState<Record<string, Expense[]>>({});
+
+  // Lọc nâng cao
+  const [filterCategory, setFilterCategory] = useState<string>('');
+  const [minAmount, setMinAmount] = useState<string>('');
+  const [maxAmount, setMaxAmount] = useState<string>('');
+  const [keyword, setKeyword] = useState<string>('');
 
   useEffect(() => {
     if (selectedPeriod === 'day') {
@@ -76,11 +85,25 @@ const StatsScreen = () => {
       return expenseDate >= startDate && expenseDate <= now;
     });
 
-    setFilteredExpenses(filtered);
-    const total = filtered.reduce((sum, expense) => sum + (expense.amount || 0), 0);
+    // Lọc nâng cao sau khi lọc theo khoảng thời gian
+    const advancedFiltered = filtered.filter(exp => {
+      const inCategory = filterCategory ? exp.category === filterCategory : true;
+      const amount = Number(exp.amount || 0);
+      const geMin = minAmount ? amount >= Number(minAmount) : true;
+      const leMax = maxAmount ? amount <= Number(maxAmount) : true;
+      const hasKeyword = keyword
+        ? `${exp.note || ''} ${exp.category || ''}`
+            .toLowerCase()
+            .includes(keyword.toLowerCase())
+        : true;
+      return inCategory && geMin && leMax && hasKeyword;
+    });
+
+    setFilteredExpenses(advancedFiltered);
+    const total = advancedFiltered.reduce((sum, expense) => sum + (expense.amount || 0), 0);
     setTotalExpenses(total);
 
-    const byCategory = filtered.reduce((acc, expense) => {
+    const byCategory = advancedFiltered.reduce((acc, expense) => {
       if (!expense.category) return acc;
 
       if (!acc[expense.category]) {
@@ -91,7 +114,13 @@ const StatsScreen = () => {
     }, {} as Record<string, number>);
 
     setExpensesByCategory(byCategory);
-  }, [expenses, selectedPeriod, selectedDate]);
+  }, [expenses, selectedPeriod, selectedDate, filterCategory, minAmount, maxAmount, keyword]);
+
+  const categoriesList = useMemo(() => {
+    const set = new Set<string>();
+    expenses.forEach(e => e.category && set.add(e.category));
+    return Array.from(set);
+  }, [expenses]);
 
   // Chuẩn bị dữ liệu cho SectionList
   const prepareSectionData = () => {
@@ -144,8 +173,23 @@ const StatsScreen = () => {
     return sections;
   };
 
+  const handleDelete = (id: string) => {
+    Alert.alert(
+      'Xóa khoản chi',
+      'Bạn có chắc muốn xóa khoản chi này?',
+      [
+        { text: 'Hủy', style: 'cancel' },
+        {
+          text: 'Xóa',
+          style: 'destructive',
+          onPress: () => dispatch(deleteExpense(id)),
+        },
+      ]
+    );
+  };
+
   const renderExpenseItem = ({ item }: { item: Expense }) => (
-    <View style={[styles.expenseItem, { backgroundColor: theme.colors.background }]}>
+    <View style={[styles.expenseItem, { backgroundColor: theme.colors.background }]}> 
       <View style={{
         padding: 15,
         backgroundColor: item.category ? getCategoryColor(item.category) : theme.colors.card,
@@ -172,14 +216,21 @@ const StatsScreen = () => {
           </Text>
         ) : null}
       </View>
-      <View style={[styles.expenseInfo, { alignItems: 'flex-end' }]}>
+      <View style={[styles.expenseInfo, { alignItems: 'flex-end' }]}> 
         <Text style={{ color: theme.colors.text }}>
           Số tiền
         </Text>
-        <Text style={[styles.expenseAmount, { color: theme.colors.text }]}>
+        <Text style={[styles.expenseAmount, { color: item.amount < 0 ? "#e63746" : "#02c59b" }]}> 
           {formatCurrency(item.amount)}
         </Text>
       </View>
+      <TouchableOpacity
+        accessibilityLabel="Xóa khoản chi"
+        onPress={() => handleDelete(item.id)}
+        style={{ padding: 8, marginLeft: 8 }}
+      >
+        <Ionicons name="trash-outline" size={20} color={theme.colors.error || '#e63746'} />
+      </TouchableOpacity>
     </View>
   );
 
@@ -198,7 +249,7 @@ const StatsScreen = () => {
             <Text
               style={[
                 styles.periodButtonText,
-                selectedPeriod === 'day' && { color: theme.colors.primary },
+                selectedPeriod === 'day' ? { color: theme.colors.primary } : { color: theme.colors.text },
               ]}>
               Ngày
             </Text>
@@ -213,7 +264,7 @@ const StatsScreen = () => {
             <Text
               style={[
                 styles.periodButtonText,
-                selectedPeriod === 'week' && { color: theme.colors.primary },
+                selectedPeriod === 'week' ? { color: theme.colors.primary } : { color: theme.colors.text },
               ]}>
               Tuần
             </Text>
@@ -228,7 +279,7 @@ const StatsScreen = () => {
             <Text
               style={[
                 styles.periodButtonText,
-                selectedPeriod === 'month' && { color: theme.colors.primary },
+                selectedPeriod === 'month' ? { color: theme.colors.primary } : { color: theme.colors.text },
               ]}>
               Tháng
             </Text>
@@ -265,6 +316,50 @@ const StatsScreen = () => {
             )}
           </>
         )}
+
+        {/* Bộ lọc nâng cao */}
+        <View style={styles.filtersRow}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <View style={[styles.filterChip, { borderColor: theme.colors.primary }]}>
+              <TextInput
+                placeholder="Danh mục"
+                placeholderTextColor={theme.colors.textSecondary}
+                value={filterCategory}
+                onChangeText={setFilterCategory}
+                style={{ color: theme.colors.text, minWidth: 90 }}
+              />
+            </View>
+            <View style={[styles.filterChip, { borderColor: theme.colors.primary }]}>
+              <TextInput
+                placeholder="Min"
+                placeholderTextColor={theme.colors.textSecondary}
+                keyboardType="numeric"
+                value={minAmount}
+                onChangeText={(t) => setMinAmount(t.replace(/[^0-9]/g, ''))}
+                style={{ color: theme.colors.text, minWidth: 70 }}
+              />
+            </View>
+            <View style={[styles.filterChip, { borderColor: theme.colors.primary }]}>
+              <TextInput
+                placeholder="Max"
+                placeholderTextColor={theme.colors.textSecondary}
+                keyboardType="numeric"
+                value={maxAmount}
+                onChangeText={(t) => setMaxAmount(t.replace(/[^0-9]/g, ''))}
+                style={{ color: theme.colors.text, minWidth: 70 }}
+              />
+            </View>
+            <View style={[styles.filterChip, { borderColor: theme.colors.primary }]}>
+              <TextInput
+                placeholder="Từ khóa"
+                placeholderTextColor={theme.colors.textSecondary}
+                value={keyword}
+                onChangeText={setKeyword}
+                style={{ color: theme.colors.text, minWidth: 120 }}
+              />
+            </View>
+          </ScrollView>
+        </View>
       </View>
 
 
@@ -279,9 +374,9 @@ const StatsScreen = () => {
             {formatCurrency(totalExpenses)}
           </Text>
 
-          <Image source={require('../assets/images/monster2.png')} style={styles.treeImage} />
-          <Image source={require('../assets/images/headerimage.png')} style={styles.monsterImage} />
         </View>
+
+        {/* Đã bỏ biểu đồ tổng quan (đã có ở màn Công cụ) */}
 
         <SectionList
           sections={prepareSectionData()}
@@ -384,10 +479,8 @@ const styles = StyleSheet.create({
   summaryCard: {
 
     position: 'relative',
-    overflow: 'hidden',
     margin: 16,
     padding: 16,
-    height: 200,
     borderRadius: 10,
     alignItems: 'center',
     elevation: 2,
@@ -407,6 +500,19 @@ const styles = StyleSheet.create({
   sectionList: {
     paddingHorizontal: 16,
     paddingBottom: 20,
+  },
+  filtersRow: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  filterChip: {
+    borderWidth: 1,
+    borderRadius: 18,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    marginRight: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   sectionHeader: {
     paddingVertical: 10,

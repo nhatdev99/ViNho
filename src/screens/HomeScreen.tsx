@@ -1,15 +1,22 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, FlatList, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import { useNavigation } from "@react-navigation/native";
 import type { Expense } from '../types';
 import { useTheme } from '../theme';
 import { useAppDispatch, useAppSelector } from '../store';
 import { fetchExpenses } from '../store/expensesSlice';
+import { fetchBudgets } from '../store/budgetsSlice';
 import { formatCurrency } from '../utils/format';
+import { Asset } from 'expo-asset';
+import type { BudgetModel } from '../store/budgetsSlice';
 
-// Hàm chuyển đổi định dạng ngày từ yyyy-mm-dd sang 'Ngày dd Tháng MM Năm yyyy'
+// Hàm chuyển định dạng ngày về 'ngày dd tháng MM năm yyyy'
+// Hỗ trợ cả ISO (yyyy-mm-ddTHH:mm:ssZ) và yyyy-mm-dd
 const formatDate = (dateString: string) => {
-  const [year, month, day] = dateString.split('-');
+  const dateOnly = dateString.includes('T')
+    ? dateString.split('T')[0]
+    : dateString;
+  const [year, month, day] = dateOnly.split('-');
   const monthNames = [
     '01', '02', '03', '04', '05', '06',
     '07', '08', '09', '10', '11', '12'
@@ -23,14 +30,52 @@ const HomeScreen = () => {
   const navigation = useNavigation();
   const dispatch = useAppDispatch();
   const { expenses, loading } = useAppSelector((state) => state.expenses);
+  const budgets = useAppSelector((state) => state.budgets.items);
+  const [assetsReady, setAssetsReady] = useState(false);
 
   useEffect(() => {
     dispatch(fetchExpenses());
+    dispatch(fetchBudgets());
   }, [dispatch]);
 
+  useEffect(() => {
+    const preload = async () => {
+      try {
+        const monster = Asset.fromModule(
+          require('../assets/images/monster2.png')
+        );
+        const header = Asset.fromModule(
+          require('../assets/images/headerimage.png')
+        );
+        await Promise.all([
+          monster.downloadAsync(),
+          header.downloadAsync(),
+        ]);
+      } catch (_) {
+      } finally {
+        setAssetsReady(true);
+      }
+    };
+    preload();
+  }, []);
+
   const today = new Date().toISOString().split('T')[0];
-  const todayExpenses = expenses.filter((expense) => expense.date === today);
+  const monthKey = new Date().toISOString().slice(0, 7); // YYYY-MM
+  const todayExpenses = expenses.filter((expense) => {
+    const expenseDate = (expense.date || '').split('T')[0];
+    return expenseDate === today;
+  });
   const totalToday = todayExpenses.reduce((sum, expense) => sum + expense.amount, 0);
+
+  // Tổng chi tiêu tháng hiện tại
+  const monthExpenses = expenses.filter((expense) => {
+    const iso = expense.date || '';
+    return iso.startsWith(monthKey);
+  });
+  const totalThisMonth = monthExpenses.reduce((sum, e) => sum + e.amount, 0);
+  const currentMonthBudget = budgets.find((b: BudgetModel) => b.monthKey === monthKey);
+  const totalLimit = currentMonthBudget?.totalLimit || 0;
+  const usageRatio = totalLimit > 0 ? totalThisMonth / totalLimit : 0;
 
   const renderExpenseItem = ({ item }: { item: Expense }) => (
     <View style={[styles.expenseItem, { borderBottomColor: theme.colors.border }]}>
@@ -44,7 +89,7 @@ const HomeScreen = () => {
           </Text>
         ) : null}
         <Text style={[styles.expenseDate, { color: theme.colors.textSecondary }]}>
-            Vào {formatDate(item.date)}
+          Vào {formatDate(item.date)}
         </Text>
       </View>
       <Text style={[styles.expenseAmount, { color: theme.colors.text }]}>
@@ -55,14 +100,50 @@ const HomeScreen = () => {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <View style={[styles.header, { backgroundColor: theme.colors.primary, borderRadius: 20 }]}>
+      <View
+        style={[
+          styles.header,
+          { backgroundColor: theme.colors.primary, borderRadius: 20 }
+        ]}
+      >
         <View style={[styles.headerContent]}>
+
           <Text style={[styles.headerTitle, { color: theme.colors.card }]}>Hôm nay</Text>
           <Text style={[styles.headerAmount, { color: theme.colors.card, zIndex: 1 }]}>{formatCurrency(totalToday)}</Text>
+          {totalLimit > 0 && (
+            <Text style={{ color: theme.colors.primary, marginTop: 6, backgroundColor: 'rgba(0, 0, 0, 0.5)', padding: 10, borderRadius: 10 }}>
+              Tháng này: {formatCurrency(totalThisMonth)} / {formatCurrency(totalLimit)}
+              {usageRatio >= 1 ? ' (Vượt ngân sách!)' : usageRatio >= 0.8 ? ' (Gần chạm ngân sách)' : ''}
+            </Text>
+          )}
+        </View>
+        <View style={styles.headerBudget}>
+          <TouchableOpacity
+            onPress={() => (navigation as any).navigate('Budget')}
+            style={styles.headerBudgetButton}
+          >
+            <Text style={{ color: theme.colors.card }}>
+              Ngân sách
+            </Text>
+          </TouchableOpacity>
         </View>
 
-        <Image source={require('../assets/images/monster2.png')} style={styles.treeImage} />
-        <Image source={require('../assets/images/headerimage.png')} style={styles.monsterImage} />
+        {assetsReady && (
+          <>
+            <Image
+              source={require('../assets/images/monster2.png')}
+              style={styles.treeImage}
+              resizeMethod="resize"
+              fadeDuration={0}
+            />
+            <Image
+              source={require('../assets/images/headerimage.png')}
+              style={styles.monsterImage}
+              resizeMethod="resize"
+              fadeDuration={0}
+            />
+          </>
+        )}
       </View>
 
       <FlatList
@@ -145,7 +226,7 @@ const styles = StyleSheet.create({
     zIndex: 1,
     position: 'absolute',
     top: 10,
-    left:15,
+    left: 15,
   },
   headerTitle: {
     color: 'white',
@@ -156,6 +237,20 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 32,
     fontWeight: 'bold',
+  },
+  headerBudget: {
+    position: 'absolute',
+    right: 10,
+    top: 10,
+  },
+  headerBudgetButton: {
+    position: 'absolute',
+    right: 10,
+    top: 0,
+    padding: 10,
+    borderRadius: 10,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    color: 'white',
   },
   listContent: {
     flex: 1,

@@ -9,16 +9,20 @@ import { useAppDispatch, useAppSelector } from './src/store';
 import { loadSettings } from './src/store/settingsSlice';
 import { fetchExpenses } from './src/store/expensesSlice';
 import { ThemeProvider, useTheme } from './src/theme';
+import { AuthProvider } from './src/contexts/AuthContext';
+import AuthWrapper from './src/components/AuthWrapper';
 
 export default function App() {
   return (
     <ReduxProvider store={store}>
       <ThemeProvider>
-        <GestureHandlerRootView style={{ flex: 1 }}>
-          <SafeAreaProvider>
-            <AppContent />
-          </SafeAreaProvider>
-        </GestureHandlerRootView>
+        <AuthProvider>
+          <GestureHandlerRootView style={{ flex: 1 }}>
+            <SafeAreaProvider>
+              <AppContent />
+            </SafeAreaProvider>
+          </GestureHandlerRootView>
+        </AuthProvider>
       </ThemeProvider>
     </ReduxProvider>
   );
@@ -35,9 +39,9 @@ function AppContent() {
   }, [dispatch]);
 
   return (
-    <>
+    <AuthWrapper>
       <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
       <AppNavigator />
-    </>
+    </AuthWrapper>
   );
 }

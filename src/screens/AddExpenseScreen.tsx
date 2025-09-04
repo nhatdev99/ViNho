@@ -1,27 +1,35 @@
+// Màn hình thêm giao dịch dưới dạng hội thoại.
+// Quản lý các bước: chọn loại, nhập số tiền, lý do,
+// xác nhận và hỗ trợ thiết lập hạn mức tháng.
 import React, { useState, useRef, useEffect } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  StyleSheet,
-  TouchableOpacity,
-  KeyboardAvoidingView,
-  Platform,
+import { 
+  View, 
+  Text, 
+  TextInput, 
+  StyleSheet, 
+  TouchableOpacity, 
+  KeyboardAvoidingView, 
+  Platform, 
   FlatList,
+  TouchableWithoutFeedback,
+  Keyboard,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../theme';
 import { useAppDispatch } from '../store';
 import { addNewExpense } from '../store/expensesSlice';
+import { useAppSelector } from '../store';
 import { Ionicons } from '@expo/vector-icons';
 import { formatCurrency } from '../utils/format';
 import Message from '../components/Message';
+
+type TransactionType = 'expense' | 'income';
 
 type ChatMessage = {
   id: string;
   text: string;
   isUser: boolean;
-  type: 'text' | 'amount' | 'reason' | 'confirm';
+  type: 'text' | 'transactionType' | 'amount' | 'reason' | 'confirm';
 };
 
 const categories = [
@@ -29,34 +37,52 @@ const categories = [
   'Mua sắm', 'Giải trí', 'Y tế', 'Giáo dục', 'Khác'
 ];
 
-
+// Component chính của màn hình thêm giao dịch
 const AddExpenseScreen = () => {
   const navigation = useNavigation();
   const dispatch = useAppDispatch();
   const { theme } = useTheme();
+  // Destructure để code gọn hơn, dễ đọc
+  const { colors } = theme;
+  const budgets = useAppSelector((state) => state.budgets.items);
   const flatListRef = useRef<FlatList>(null);
+  // Sinh id tăng dần, đảm bảo duy nhất và ổn định cho FlatList
+  const idCounter = useRef<number>(0);
+  const nextId = () => `${++idCounter.current}`;
 
+  // State quản lý loại giao dịch (chi/thu)
+  const [transactionType, setTransactionType] =
+    useState<TransactionType>('expense');
+  // Danh sách tin nhắn hội thoại hiển thị trong FlatList
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
-      id: '1',
-      text: 'Xin chào! Bạn muốn thêm khoản chi tiêu mới chứ?',
+      id: nextId(),
+      text: 'Xin chào! Bạn muốn thêm giao dịch mới chứ?',
       isUser: false,
       type: 'text',
     },
     {
-      id: '2',
-      text: 'Bạn đã chi bao nhiêu tiền?',
+      id: nextId(),
+      text: 'Đây là khoản thu hay chi?',
       isUser: false,
-      type: 'amount',
+      type: 'transactionType',
     },
   ]);
 
+  // Giá trị người dùng nhập (số tiền / lý do / hạn mức)
   const [inputValue, setInputValue] = useState('');
-  const [currentStep, setCurrentStep] = useState<'amount' | 'reason' | 'confirm'>('amount');
-  const [expenseData, setExpenseData] = useState({ amount: '', reason: '' });
+  // Bước hiện tại của hội thoại
+  const [currentStep, setCurrentStep] = useState<
+    'transactionType' | 'amount' | 'reason' | 'confirm'
+  >('transactionType');
+  const [expenseData, setExpenseData] = useState({
+    amount: '',
+    reason: ''
+  });
+  // Trạng thái gửi/xử lý để disable nút, tránh double submit
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Tự động cuộn xuống khi có tin nhắn mới
+  // Tự động cuộn xuống khi có tin nhắn mới xuất hiện
   useEffect(() => {
     if (flatListRef.current) {
       setTimeout(() => {
@@ -65,11 +91,37 @@ const AddExpenseScreen = () => {
     }
   }, [messages]);
 
+  // Chọn loại giao dịch: 'expense' hoặc 'income'
+  const handleTransactionTypeSelect = (type: TransactionType) => {
+    setTransactionType(type);
+    const typeText = type === 'expense' ? 'chi' : 'thu';
+
+    setMessages(prev => [
+      ...prev,
+      {
+        id: nextId(),
+        text: type === 'expense' ? 'Chi' : 'Thu',
+        isUser: true,
+        type: 'transactionType',
+      },
+      {
+        id: nextId(),
+        text: `Bạn đã ${typeText} bao nhiêu tiền?`,
+        isUser: false,
+        type: 'amount',
+      },
+    ]);
+    setCurrentStep('amount');
+  };
+
+  // Đã bỏ thiết lập hạn mức khỏi màn hình này
+
+  // Xử lý gửi tin nhắn theo bước hiện tại
   const handleSend = () => {
-    if (!inputValue.trim()) return;
+    if (!inputValue.trim() && currentStep !== 'transactionType') return;
 
     const userMessage: ChatMessage = {
-      id: Date.now().toString(),
+      id: nextId(),
       text: inputValue,
       isUser: true,
       type: currentStep,
@@ -83,7 +135,7 @@ const AddExpenseScreen = () => {
         setMessages(prev => [
           ...prev,
           {
-            id: (Date.now() + 1).toString(),
+            id: nextId(),
             text: '❌ Số tiền không hợp lệ. Vui lòng nhập lại số tiền lớn hơn 0.',
             isUser: false,
             type: 'amount',
@@ -93,10 +145,27 @@ const AddExpenseScreen = () => {
         return;
       }
       setExpenseData(prev => ({ ...prev, amount }));
+      // Cảnh báo nhanh theo tổng ngân sách tháng
+      const monthKey = new Date().toISOString().slice(0, 7);
+      const monthBudget = budgets.find((b: any) => b.monthKey === monthKey);
+      if (monthBudget?.totalLimit) {
+        const projected = Number(amount); // chỉ dựa vào khoản hiện tại
+        if (projected >= monthBudget.totalLimit * 0.9) {
+          setMessages(prev => [
+            ...prev,
+            {
+              id: nextId(),
+              text: '⚠️ Khoản này có thể khiến bạn vượt ngân sách tháng.',
+              isUser: false,
+              type: 'text',
+            },
+          ]);
+        }
+      }
       setMessages(prev => [
         ...prev,
         {
-          id: (Date.now() + 2).toString(),
+          id: nextId(),
           text: `Đã ghi nhận số tiền ${formatCurrency(
             Number(amount)
           )}. Bạn chi vào việc gì vậy?`,
@@ -110,7 +179,7 @@ const AddExpenseScreen = () => {
       setMessages(prev => [
         ...prev,
         {
-          id: (Date.now() + 2).toString(),
+          id: nextId(),
           text: `Bạn chắc chắn muốn thêm khoản chi ${formatCurrency(
             Number(expenseData.amount)
           )} cho "${inputValue}" chứ?`,
@@ -124,52 +193,60 @@ const AddExpenseScreen = () => {
     setInputValue('');
   };
 
+  // Reset về trạng thái ban đầu của hội thoại
   const resetState = () => {
     setInputValue('');
-    setCurrentStep('amount');
-    setExpenseData({ amount: '', reason: '' });
+    setTransactionType('expense');
+    setCurrentStep('transactionType');
+    setExpenseData(prev => ({ ...prev, amount: '', reason: '' }));
     setMessages([
       {
-        id: '1',
-        text: 'Xin chào! Bạn muốn thêm khoản chi tiêu mới chứ?',
+        id: nextId(),
+        text: 'Xin chào! Bạn muốn thêm giao dịch mới chứ?',
         isUser: false,
         type: 'text',
       },
       {
-        id: '2',
-        text: 'Bạn đã chi bao nhiêu tiền?',
+        id: nextId(),
+        text: 'Đây là khoản thu hay chi?',
         isUser: false,
-        type: 'amount',
+        type: 'transactionType',
       },
     ]);
   };
 
+  // Quay lại màn trước và reset hội thoại
   const handleBack = () => {
     resetState();
     navigation.goBack();
   };
 
+  // Xác nhận và lưu giao dịch vào store
   const handleConfirm = async () => {
     try {
       setIsSubmitting(true);
 
-      const newExpense = {
+      // Tạo payload đúng kiểu: Omit<Expense, 'id' | 'createdAt'>
+      const categoryFromReason = categories.includes(expenseData.reason)
+        ? expenseData.reason
+        : 'Khác';
+      const newExpensePayload = {
         amount: Number(expenseData.amount),
-        category: expenseData.reason,
-        note: expenseData.reason,
-        date: new Date().toISOString().slice(0, 10),
+        category: categoryFromReason,
+        note: expenseData.reason || '',
+        date: new Date().toISOString(),
       };
 
-      await dispatch(addNewExpense(newExpense)).unwrap();
+      await dispatch(addNewExpense(newExpensePayload)).unwrap();
 
-      console.log("newExpense", newExpense);
+      console.log('addedExpensePayload', newExpensePayload);
 
       setMessages(prev => [
         ...prev,
         {
-          id: (Date.now() + 1).toString(),
-          text: `✅ Đã thêm khoản chi ${formatCurrency(
-            Number(expenseData.amount)
+          id: nextId(),
+          text: `✅ Đã thêm khoản ${transactionType === 'expense' ? 'chi' : 'thu'} ${formatCurrency(
+            Math.abs(Number(expenseData.amount))
           )} cho "${expenseData.reason}" thành công!`,
           isUser: false,
           type: 'text',
@@ -183,7 +260,7 @@ const AddExpenseScreen = () => {
       setMessages(prev => [
         ...prev,
         {
-          id: (Date.now() + 1).toString(),
+          id: nextId(),
           text: '❌ Có lỗi xảy ra khi lưu khoản chi. Vui lòng thử lại!',
           isUser: false,
           type: 'text',
@@ -195,11 +272,49 @@ const AddExpenseScreen = () => {
     }
   };
 
+  // Render từng dòng tin nhắn trong FlatList
+  const renderMessageItem = ({ item }: { item: ChatMessage }) => {
+    if (item.type === 'transactionType' && !item.isUser) {
+      return (
+        <View style={styles.transactionTypeContainer}>
+          <TouchableOpacity
+            style={[
+              styles.transactionTypeButton,
+              transactionType === 'expense' && styles.transactionTypeButtonActive,
 
-  const renderMessageItem = ({ item }: { item: ChatMessage }) => (
-    <Message text={item.text} isUser={item.isUser} />
-  );
+            ]}
+            onPress={() => handleTransactionTypeSelect('expense')}
+          >
+            <Text style={[
+              styles.transactionTypeText,
+              transactionType === 'expense' && styles.transactionTypeTextActive
+            ]}>
+              Chi tiêu
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.transactionTypeButton,
+              transactionType === 'income' && styles.transactionTypeButtonActive
+            ]}
+            onPress={() => handleTransactionTypeSelect('income')}
+          >
+            <Text style={[
+              styles.transactionTypeText,
+              transactionType === 'income' && styles.transactionTypeTextActive
+            ]}>
+              Thu nhập
+            </Text>
+          </TouchableOpacity>
+          {/* Đã chuyển tính năng hạn mức sang BudgetScreen */}
+        </View>
+      );
+    }
 
+    return <Message text={item.text} isUser={item.isUser} />;
+  }
+
+  // Khu vực input dưới cùng: hiển thị theo từng bước
   const renderInput = () => {
     if (currentStep === 'reason') {
       return (
@@ -207,19 +322,19 @@ const AddExpenseScreen = () => {
           {categories.map(cat => (
             <TouchableOpacity
               key={cat}
-              style={[styles.categoryButton, { backgroundColor: theme.colors.card }]}
+              style={[styles.categoryButton, { backgroundColor: '#f0f0f0' }]}
               onPress={() => {
                 setExpenseData(prev => ({ ...prev, reason: cat }));
                 setMessages(prev => [
                   ...prev,
                   {
-                    id: Date.now().toString(),
+                    id: nextId(),
                     text: cat,
                     isUser: true,
                     type: 'reason',
                   },
                   {
-                    id: (Date.now() + 1).toString(),
+                    id: nextId(),
                     text: `Bạn chắc chắn muốn thêm khoản chi ${formatCurrency(
                       Number(expenseData.amount)
                     )} cho "${cat}" chứ?`,
@@ -230,7 +345,7 @@ const AddExpenseScreen = () => {
                 setCurrentStep('confirm');
               }}
             >
-              <Text style={{ color: theme.colors.text }}>{cat}</Text>
+              <Text style={{ color: '#000' }}>{cat}</Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -241,14 +356,14 @@ const AddExpenseScreen = () => {
       return (
         <View style={styles.confirmButtonsContainer}>
           <TouchableOpacity
-            style={[styles.confirmButton, { backgroundColor: theme.colors.success }]}
+            style={[styles.confirmButton, { backgroundColor: '#34C759' }]}
             onPress={handleConfirm}
             disabled={isSubmitting}
           >
             <Text style={styles.confirmButtonText}>Có</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.confirmButton, { backgroundColor: theme.colors.error }]}
+            style={[styles.confirmButton, { backgroundColor: '#FF3B30' }]}
             onPress={() => {
               resetState();
               navigation.goBack();
@@ -263,20 +378,20 @@ const AddExpenseScreen = () => {
 
     // amount step
     return (
-      <View style={[styles.inputContainer, { backgroundColor: theme.colors.card }]}>
+      <View style={[styles.inputContainer, { backgroundColor: '#f0f0f0' }]}>
         <TextInput
           style={[
             styles.input,
             {
-              color: theme.colors.text,
-              backgroundColor: theme.colors.background,
-              borderColor: theme.colors.border,
+              color: '#000',
+              backgroundColor: '#fff',
+              borderColor: '#ccc',
             },
           ]}
           value={inputValue}
           onChangeText={setInputValue}
           placeholder="Nhập số tiền..."
-          placeholderTextColor={theme.colors.textSecondary}
+          placeholderTextColor="#ccc"
           onSubmitEditing={handleSend}
           editable={!isSubmitting}
           keyboardType="numeric"
@@ -285,7 +400,7 @@ const AddExpenseScreen = () => {
           style={[
             styles.sendButton,
             {
-              backgroundColor: inputValue.trim() ? theme.colors.primary : '#ccc',
+              backgroundColor: inputValue.trim() ? '#007AFF' : '#ccc',
               opacity: isSubmitting ? 0.5 : 1,
             },
           ]}
@@ -299,20 +414,30 @@ const AddExpenseScreen = () => {
   };
 
 
+
+
+
+  // Đã bỏ cảnh báo theo hạn mức tại đây, chuyển sang BudgetScreen/Home
+
+  // Giao diện chính: header, danh sách tin nhắn và input
   return (
     <KeyboardAvoidingView
-      style={[styles.container, { backgroundColor: theme.colors.background }]}
+      style={[styles.container, { backgroundColor: colors.background }]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
     >
-      <View style={[styles.header, { borderBottomColor: theme.colors.border }]}>
+      <View style={[styles.header, { borderBottomColor: colors.border }]}>
         <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-          <Ionicons name="close" size={28} color={theme.colors.text} />
+          <Ionicons name="close" size={28} color={colors.text} />
         </TouchableOpacity>
-        <Text style={[styles.title, { color: theme.colors.text }]}>Thêm chi tiêu</Text>
-        <View style={{ width: 28 }} />
+        <Text style={[styles.title, { color: colors.text }]}>
+          Thêm giao dịch mới
+        </Text>
+        <View style={{ width: 40 }} />
       </View>
 
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+      <View style={{ flex: 1 }}>
       <FlatList
         ref={flatListRef}
         data={messages}
@@ -323,14 +448,44 @@ const AddExpenseScreen = () => {
         keyboardShouldPersistTaps="handled"
         onLayout={() => flatListRef.current?.scrollToEnd({ animated: true })}
       />
-
       {renderInput()}
+      </View>
+      </TouchableWithoutFeedback>
     </KeyboardAvoidingView>
   );
 };
 
+// Styles tách riêng giúp tái sử dụng và dễ bảo trì
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  messagesContainer: { flex: 1 },
+  messagesContent: { padding: 16 },
+  transactionTypeContainer: {
+    flexDirection: 'row',
+    marginVertical: 10,
+    paddingHorizontal: 16,
+    justifyContent: 'flex-start',
+    flexWrap: 'wrap',
+  },
+  transactionTypeButton: {
+    paddingHorizontal: 20,
+    marginTop: 5,
+    paddingVertical: 10,
+    borderRadius: 20,
+    marginHorizontal: 5,
+    backgroundColor: '#f0f0f0',
+  },
+  transactionTypeButtonActive: {
+    backgroundColor: '#02c59b',
+  },
+  transactionTypeText: {
+    fontSize: 16,
+    color: '#666',
+  },
+  transactionTypeTextActive: {
+    color: '#fff',
+    fontWeight: 'bold',
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -347,14 +502,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   title: { fontSize: 18, fontWeight: '600' },
-  messagesContainer: { flex: 1 },
-  messagesContent: { padding: 16, paddingBottom: 80 },
   inputContainer: {
     flexDirection: 'row',
-    alignItems: 'center',
     padding: 12,
-    paddingBottom: Platform.OS === 'ios' ? 30 : 12,
+    alignItems: 'center',
     borderTopWidth: 1,
+    paddingBottom: Platform.OS === 'ios' ? 30 : 12,
   },
   input: {
     flex: 1,
@@ -406,7 +559,6 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     margin: 6,
   },
-  
 });
 
 export default AddExpenseScreen;

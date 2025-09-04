@@ -1,32 +1,35 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  View, 
-  Text, 
-  Switch, 
-  StyleSheet, 
-  ScrollView, 
-  TouchableOpacity, 
-  Alert 
+import {
+  View,
+  Text,
+  Switch,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Alert
 } from 'react-native';
 import { useTheme, type ColorPalette } from '../theme';
 import { useAppDispatch, useAppSelector } from '../store';
 import { updateSettings } from '../store/settingsSlice';
+import { useAuth } from '../contexts/AuthContext';
+import { useNavigation } from '@react-navigation/native';
 
-interface SettingsScreenProps {}
+interface SettingsScreenProps { }
 
 const SettingsScreen: React.FC<SettingsScreenProps> = () => {
-  const { 
-    theme, 
-    colorScheme, 
-    toggleColorScheme, 
-    colorPalette, 
-    setColorPalette 
+  const {
+    theme,
+    colorScheme,
+    toggleColorScheme,
+    colorPalette,
+    setColorPalette
   } = useTheme();
-  
+
   const dispatch = useAppDispatch();
   const { settings } = useAppSelector((state) => state.settings);
   const [localSettings, setLocalSettings] = useState(settings);
-
+  const { user, logout } = useAuth();
+  const navigation = useNavigation();
   // Các màu sắc có sẵn để chọn
   const availablePalettes = [
     { id: 'blue', name: 'Xanh dương' },
@@ -78,7 +81,8 @@ const SettingsScreen: React.FC<SettingsScreenProps> = () => {
 
   const handleExportData = () => {
     // TODO: Thêm chức năng xuất dữ liệu
-    Alert.alert('Thông báo', 'Tính năng đang được phát triển');
+    Alert.alert('Thông báo', 'Tính năng này dã được tích hợp vào bộ công cụ');
+    (navigation as any).navigate('Tools');
   };
 
   return (
@@ -92,9 +96,27 @@ const SettingsScreen: React.FC<SettingsScreenProps> = () => {
           Cài đặt
         </Text>
       </View>
+      {user && (
+        <View style={[styles.section, { backgroundColor: theme.colors.card }]}>
+          <Text style={[
+            styles.sectionTitle,
+            {
+              color: theme.colors.text
+            }]}>
+            Đăng nhập với
+          </Text>
+          <Text style={[styles.settingDescription, { color: theme.colors.textSecondary }]}>
+            {user.email}
+          </Text>
+        </View>
+      )}
       {/* Phần giao diện */}
       <View style={[styles.section, { backgroundColor: theme.colors.card }]}>
-        <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
+        <Text style={[styles.sectionTitle, {
+          color: theme.colors.text, borderBottomWidth: 1,
+          borderBottomColor: theme.colors.border,
+          marginBottom: 16, paddingBottom: 16
+        }]}>
           Giao diện
         </Text>
 
@@ -105,9 +127,9 @@ const SettingsScreen: React.FC<SettingsScreenProps> = () => {
               Chế độ tối
             </Text>
             <Text style={[styles.settingDescription, { color: theme.colors.textSecondary }]}>
-              {colorScheme === 'dark' 
-              ? 'Đang bật chế độ tối' 
-              : 'Đang tắt chế độ tối'}
+              {colorScheme === 'dark'
+                ? 'Đang bật chế độ tối'
+                : 'Đang tắt chế độ tối'}
             </Text>
           </View>
           <Switch
@@ -130,11 +152,11 @@ const SettingsScreen: React.FC<SettingsScreenProps> = () => {
                 style={[
                   styles.paletteButton,
                   {
-                    borderColor: colorPalette === palette.id 
-                      ? theme.colors.primary 
+                    borderColor: colorPalette === palette.id
+                      ? theme.colors.primary
                       : theme.colors.border,
-                    backgroundColor: colorPalette === palette.id 
-                      ? `${theme.colors.primary}20` 
+                    backgroundColor: colorPalette === palette.id
+                      ? `${theme.colors.primary}20`
                       : 'transparent',
                   },
                 ]}
@@ -166,10 +188,13 @@ const SettingsScreen: React.FC<SettingsScreenProps> = () => {
 
       {/* Phần đơn vị tiền tệ */}
       <View style={[styles.section, { backgroundColor: theme.colors.card }]}>
-        <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
+        <Text style={[styles.sectionTitle, { color: theme.colors.text, borderBottomWidth: 1,
+          borderBottomColor: theme.colors.border,
+          marginBottom: 16, paddingBottom: 16
+        }]}>
           Đơn vị tiền tệ
         </Text>
-        
+
         <View style={styles.currencyContainer}>
           {currencies.map((currency) => (
             <TouchableOpacity
@@ -206,26 +231,77 @@ const SettingsScreen: React.FC<SettingsScreenProps> = () => {
 
       {/* Phần dữ liệu */}
       <View style={[styles.section, { backgroundColor: theme.colors.card }]}>
-        <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
+        <Text style={[styles.sectionTitle, { color: theme.colors.text, borderBottomWidth: 1,
+          borderBottomColor: theme.colors.border,
+          marginBottom: 16, paddingBottom: 16
+        }]}>
           Dữ liệu
         </Text>
-        
-        <TouchableOpacity 
-          style={[styles.dataItem, ]}
+
+        <TouchableOpacity
+          style={[styles.dataItem,]}
           onPress={handleExportData}
         >
           <Text style={
             [
-              styles.dataLabel, 
-              {backgroundColor: theme.colors.card, 
-                borderColor: theme.colors.primary, 
-                color: theme.colors.primary }
+              styles.dataLabel,
+              {
+                backgroundColor: theme.colors.card,
+                borderColor: theme.colors.primary,
+                color: theme.colors.primary
+              }
             ]
           }>
             Xuất dữ liệu
           </Text>
         </TouchableOpacity>
       </View>
+
+      {/* Phần tài khoản */}
+      {user && (
+        <View style={[styles.section, { backgroundColor: theme.colors.card }]}>
+          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
+            Tài khoản
+          </Text>
+
+
+
+          <TouchableOpacity
+            style={[styles.dataItem]}
+            onPress={() => {
+              Alert.alert(
+                'Đăng xuất',
+                'Bạn có chắc chắn muốn đăng xuất?',
+                [
+                  { text: 'Hủy', style: 'cancel' },
+                  {
+                    text: 'Đăng xuất',
+                    style: 'destructive',
+                    onPress: async () => {
+                      try {
+                        await logout();
+                      } catch (error) {
+                        Alert.alert('Lỗi', 'Không thể đăng xuất');
+                      }
+                    }
+                  }
+                ]
+              );
+            }}
+          >
+            <Text style={[
+              styles.dataLabel,
+              {
+                backgroundColor: theme.colors.card,
+                borderColor: theme.colors.error,
+                color: theme.colors.error
+              }
+            ]}>
+              Đăng xuất
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </ScrollView>
   );
 };

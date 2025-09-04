@@ -9,15 +9,22 @@ import { useTheme } from '../theme';
 import HomeScreen from '../screens/HomeScreen';
 import AddExpenseScreen from '../screens/AddExpenseScreen';
 import StatsScreen from '../screens/StatsScreen';
+import ToolsScreen from '../screens/ToolsScreen';
 import SettingsScreen from '../screens/SettingsScreen';
+import RecurringScreen from '../screens/RecurringScreen';
+import BudgetScreen from '../screens/BudgetScreen';
 
 export type RootStackParamList = {
   Home: undefined;
   AddExpense: undefined;
+  Budget: undefined;
+  Recurring: undefined;
+  ToolsHome: undefined;
 };
 export type RootTabParamList = {
   HomeTab: undefined;
   Stats: undefined;
+  Tools: undefined;
   Settings: undefined;
 };
 
@@ -30,12 +37,31 @@ const HomeStack = () => (
   }}>
     <Stack.Screen name="Home" component={HomeScreen} />
     <Stack.Screen 
+      name="Budget" 
+      component={BudgetScreen} 
+      options={{
+        presentation: 'modal',
+        headerShown: false,
+      }}
+    />
+    <Stack.Screen 
       name="AddExpense" 
       component={AddExpenseScreen} 
       options={{
         presentation: 'modal',
         headerShown: false
       }}
+    />
+  </Stack.Navigator>
+);
+
+const ToolsStack = () => (
+  <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <Stack.Screen name="ToolsHome" component={ToolsScreen} />
+    <Stack.Screen
+      name="Recurring"
+      component={RecurringScreen}
+      options={{ presentation: 'modal', headerShown: false }}
     />
   </Stack.Navigator>
 );
@@ -54,6 +80,8 @@ const AppNavigator = () => {
               iconName = focused ? 'home' : 'home-outline';
             } else if (route.name === 'Stats') {
               iconName = focused ? 'stats-chart' : 'stats-chart-outline';
+            } else if (route.name === 'Tools') {
+              iconName = focused ? 'construct' : 'construct-outline';
             } else if (route.name === 'Settings') {
               iconName = focused ? 'settings' : 'settings-outline';
             }
@@ -84,6 +112,14 @@ const AppNavigator = () => {
           options={{
             title: 'Thống kê',
             tabBarLabel: 'Thống kê',
+          }}
+        />
+        <Tab.Screen
+          name="Tools"
+          component={ToolsStack}
+          options={{
+            title: 'Công cụ',
+            tabBarLabel: 'Công cụ',
           }}
         />
         <Tab.Screen

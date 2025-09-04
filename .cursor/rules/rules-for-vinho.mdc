@@ -1,0 +1,38 @@
+---
+description: Development guidelines for Cursor
+globs: ["**/*.js", "**/*.ts", "**/*.jsx", "**/*.tsx"]
+alwaysApply: true
+---
+
+## 🗣 Language & Response Style
+
+- Always respond in Vietnamese, regardless of the prompt language.
+- Use natural, conversational Vietnamese suitable for technical contexts.
+- Prefer informal but professional tone.
+- Avoid literal translations from English.
+- Use Vietnamese technical terms where appropriate.
+
+## 🧠 Coding Standards
+
+- Always include unit tests when creating new functions.
+- Use `npm` to install packages.
+- Write readable and clean code.
+- Follow the 66 characters per line rule.
+- Use destructuring when extracting properties from objects.
+- Use `async/await` instead of promises.
+- Use `const` and `let` instead of `var`.
+- Use arrow functions when possible.
+- Use template literals for string interpolation.
+- Use default parameters when appropriate.
+- Use short circuiting instead of simple `if` statements.
+- Use spread syntax when appropriate.
+- Use strict equality (`===`) instead of loose equality (`==`).
+- Use arrow functions for callbacks and promises.
+- Use asynchronous functions for asynchronous operations.
+- Use imports and exports for modular code.
+- Always comment your code clearly.
+
+## 🧰 Workflow & Environment
+
+- Thoroughly check all files in the project to ensure synchronization and correct structure.
+- Use Git Bash to run commands.
