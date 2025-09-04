@@ -248,9 +248,8 @@ Dự án này được phát hành dưới giấy phép MIT. Xem [LICENSE](LICEN
 
 ## 📞 **Liên Hệ**
 
-- **Email**: nhatdev99@gmail.com
+- **Email**: thanhnhattnn@gmail.com
 - **GitHub**: [@nhatdev99](https://github.com/nhatdev99)
-- **LinkedIn**: [Nhật Dev](https://linkedin.com/in/nhatdev99)
 
 ## 🙏 **Cảm Ơn**
 
